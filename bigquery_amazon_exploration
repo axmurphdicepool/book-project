@@ -1,0 +1,13 @@
+SELECT
+  Year,
+  Rank,
+  Book_Title,
+  Author,
+  Rating,
+  Num_Customers_Rated,
+  Price
+FROM
+  `book-project-479914.source_data.amazon_bs_20102020`
+ORDER BY
+  Year ASC,
+  Rank ASC
