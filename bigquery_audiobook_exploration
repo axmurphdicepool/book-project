@@ -48,3 +48,21 @@
     },
     "additionalProperties": false
 }
+
+
+
+SELECT
+  name,
+  author,
+  narrator,
+  time AS duration_mins,
+  DATE(releasedate) AS release_date,
+  INITCAP(language) AS language,
+  stars,
+  CAST(ratings AS INT64) AS nb_ratings,
+  price * 0.01 AS price_euros   -- e.g. 1 INR ≈ 0.011 EUR
+FROM
+  `book-project-479914.source_data.audible`
+WHERE
+  price <> 0
+  
