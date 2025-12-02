@@ -1,0 +1,68 @@
+{
+    "title": "Audiobook",
+    "type": "object",
+    "required": ["name", "author", "narrator", "time", "releasedate", "language", "stars", "price", "ratings"],
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Name of the audiobook"
+        },
+        "author": {
+            "type": "string",
+            "description": "Author of the audiobook"
+        },
+        "narrator": {
+            "type": "string",
+            "description": "Narrator of the audiobook"
+        },
+        "time": {
+            "type": "string",
+            "pattern": "^\\d{1,3}:\\d{2}(:\\d{2})?$",
+            "description": "Length of the audiobook (HH:MM or HH:MM:SS). Hours may be 1-3 digits."
+        },
+        "releasedate": {
+            "type": "string",
+            "format": "date",
+            "description": "Release date (YYYY-MM-DD)"
+        },
+        "language": {
+            "type": "string",
+            "description": "Language of the audiobook"
+        },
+        "stars": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "description": "Number of stars (0 to 5)"
+        },
+        "price": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Price of the audiobook in INR"
+        },
+        "ratings": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of reviews received"
+        }
+    },
+    "additionalProperties": false
+}
+
+
+
+SELECT
+  name,
+  author,
+  narrator,
+  time AS duration_mins,
+  DATE(releasedate) AS release_date,
+  INITCAP(language) AS language,
+  stars,
+  CAST(ratings AS INT64) AS nb_ratings,
+  price * 0.01 AS price_euros   -- e.g. 1 INR ≈ 0.011 EUR
+FROM
+  `book-project-479914.source_data.audible`
+WHERE
+  price <> 0
+  
