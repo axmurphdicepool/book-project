@@ -1,6 +1,6 @@
 CREATE OR REPLACE TABLE
-    `source_data.goodreads_ratings_CLEANED` -- Choose a new, distinct table name
-AS
+    `cleaned_data.goodreads_ratings_CLEANED`
+    as
 SELECT
     bookID,
     title,
