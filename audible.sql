@@ -16,11 +16,11 @@ The audiobook’s average star rating (rounded to two decimals).
 
 Total number of customer ratings recorded on Audible.
 
-6. published_year — DATE
+6. published_year — INT64
 
 7. price_eur — FLOAT64
 
-8. length — INT64 / FLOAT64
+8. length — STRING
 
 The duration of the audiobook in minutes.
 

@@ -20,9 +20,9 @@ Total number of customer ratings, using the maximum value recorded (because revi
 
 The average price of the book across all years it appeared.
 
-7. bestseller — BOOL
+7. bestseller — INT64
 
-Always TRUE, since the dataset contains only bestseller books.
+Always TRUE (0/1), since the dataset contains only bestseller books.
 
 8. years_on_bestsellers_list — INT64
 
@@ -49,3 +49,22 @@ SELECT
 FROM `book-project-479914.cleaned_data.amazon_data-v2`
 GROUP BY title, author
 ORDER BY years_on_bestsellers_list DESC
+
+
+  SELECT
+  source,   -- STRING
+  title,    -- STRING
+  author,   -- STRING
+  review,   -- FLOAT64
+  reviews_count,   -- INT64
+ published_year,   -- INT64
+  price_eur,       -- FLOAT64
+  CAST (length AS STRING) AS length,  -- STRING
+  awards,       --  INT64
+  bestseller,   -- INT64
+  classic,     -- INT64
+  CAST(publisher AS STRING) AS publisher,  -- STRING
+  CAST(book_series AS STRING) AS book_series,   -- STRING
+  CAST(genre AS STRING) AS genre,     -- STRING
+  years_on_bestsellers_list    -- INT64
+FROM `book-project-479914.harmonized_data.amazon_bestseller-v4`
