@@ -11,7 +11,7 @@ SELECT
     WHEN pages < 250 THEN 'short'
     ELSE 'average'
   END AS length
-  ,awards IS NOT NULL AS awards
+  ,SAFE_CAST(awards IS NOT NULL AS INT64) AS awards
   ,SAFE_CAST(null AS INT64) AS bestseller
   ,SAFE_CAST(1 AS INT64) AS classic 
   ,"" AS publisher

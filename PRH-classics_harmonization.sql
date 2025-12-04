@@ -4,7 +4,7 @@ SELECT
   ,Author AS author
   ,SAFE_CAST(null AS FLOAT64) AS review
   ,null AS reviews_count
-  ,SAFE_CAST(Year AS INT64) AS pblished_year
+  ,SAFE_CAST(Year AS INT64) AS published_year
   ,SAFE_CAST(null AS FLOAT64) AS price_eur
   ,"" AS length
   ,null AS awards
