@@ -42,3 +42,28 @@ SELECT
   NULL AS genre,                           -- STRING (placeholder)
   NULL AS years_on_bestsellers_list        -- INT64 (not used for Audible)
 FROM `book-project-479914.cleaned_data.audio_data-v2`
+
+
+SELECT
+  source,     --STRING
+  title,      --STRING
+  author,     --STRING
+  review,     -- FLOAT64
+  reviews_count,    -- INT64
+  published_year,   -- INT64
+  price_eur,        -- FLOAT64
+
+  CASE
+    WHEN CAST(length AS INT64) <= 480 THEN 'Short'
+    WHEN CAST(length AS INT64) BETWEEN 480 AND 600 THEN 'Average'
+    ELSE 'Long'
+  END AS length,    -- STRING
+
+  awards,            -- INT64
+  bestseller,        -- INT64
+  classic,           -- INT64
+  publisher,         -- STRING
+  book_series,       -- STRING
+  genre,             -- STRING
+  years_on_bestsellers_list     -- INT64
+FROM `book-project-479914.harmonized_data.audible_data-v5`
