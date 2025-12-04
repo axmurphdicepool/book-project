@@ -2,14 +2,14 @@ SELECT
   "Prh-classics" AS source
   ,Title AS title
   ,Author AS author
-  ,null AS review
+  ,SAFE_CAST(null AS FLOAT64) AS review
   ,null AS reviews_count
-  ,Year AS pblished_year
-  ,null AS price_eur
+  ,SAFE_CAST(Year AS INT64) AS pblished_year
+  ,SAFE_CAST(null AS FLOAT64) AS price_eur
   ,"" AS length
   ,null AS awards
   ,null AS bestseller
-  ,TRUE AS classic
+  ,SAFE_CAST(1 AS INT64) AS classic
   ,"" AS publisher
   ,"" AS book_series
   ,"" AS genre

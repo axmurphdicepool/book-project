@@ -2,10 +2,10 @@ SELECT
   "Prh-api" AS source
   ,title
   ,author
-  ,null AS review
+  ,SAFE_CAST(null AS FLOAT64) AS review
   ,null AS reviews_count
   ,null AS published_year
-  ,price AS price_eur
+  ,SAFE_CAST(price AS FLOAT64) AS price_eur
   ,CASE
     WHEN pages > 350 THEN 'long'
     WHEN pages < 250 THEN 'short'
