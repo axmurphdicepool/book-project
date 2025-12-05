@@ -1,0 +1,188 @@
+## This table contains 254 unique books, is a list of bestseller books with different genre from 2010 to 2020 sourced from Amazon, and is used to analyse the most popular genres, the relationship between genre and years on the bestseller list, and to identify top bestseller titles.
+
+WITH book_level AS (
+  SELECT
+    title,
+    author,
+    MAX(years_on_bestsellers_list) AS years_on_bestsellers_list,
+    ANY_VALUE(genre) AS genre
+  FROM `book-project-479914.harmonized_data.maybe_final_concat`
+  GROUP BY
+    title,
+    author
+)
+
+SELECT
+  title,
+  author,
+  genre,
+  years_on_bestsellers_list,
+  ROUND (AVG(years_on_bestsellers_list) OVER (PARTITION BY genre),2) AS genre_avg_years_on_list,
+  MAX(years_on_bestsellers_list) OVER (PARTITION BY genre) AS genre_max_years_on_list,
+  COUNT(*) OVER (PARTITION BY genre) AS genre_num_books
+FROM book_level
+WHERE
+  years_on_bestsellers_list IS NOT NULL
+  AND genre IS NOT NULL
+ORDER BY
+  genre,
+  years_on_bestsellers_list DESC
+
+
+  ## Specify genre_level1 (fiction / nonfiction / children) 
+  ##       & genre_level2 ()
+
+SELECT
+  title,
+  author,
+  genre,
+
+  ---------------------------------------------------
+  -- LEVEL 1：fiction / nonfiction / children
+  ---------------------------------------------------
+  CASE
+
+    WHEN LOWER(genre) LIKE '%children%' 
+      OR LOWER(genre) LIKE '%childrens%'
+      OR LOWER(genre) LIKE '%picture%' 
+      THEN 'children'
+
+
+    WHEN (LOWER(genre) LIKE '%fiction%' AND LOWER(genre) NOT LIKE '%nonfiction%')
+      OR LOWER(genre) LIKE '%young adult%'
+      OR LOWER(genre) LIKE '%teen & young adult%'
+      OR LOWER(genre) LIKE '%fantasy%'
+      OR LOWER(genre) LIKE '%mystery, thriller & suspense%'
+      OR (LOWER(genre) LIKE '%mystery%' AND LOWER(genre) NOT LIKE '%nonfiction%')
+      OR LOWER(genre) LIKE '%thriller%'
+      OR LOWER(genre) LIKE '%romance%'
+      THEN 'fiction'
+
+
+    ELSE 'nonfiction'
+  END AS genre_level1,
+
+  ---------------------------------------------------
+  -- LEVEL 2
+  ---------------------------------------------------
+  CASE
+    -------------------------------------------------
+    -- Children / Fiction
+    -------------------------------------------------
+    WHEN LOWER(genre) LIKE '%children%' 
+       OR LOWER(genre) LIKE '%childrens%' 
+       OR LOWER(genre) LIKE '%picture%' 
+       THEN 'Children'
+
+    WHEN LOWER(genre) LIKE '%literature & fiction%'  
+       THEN 'Literary'
+
+    WHEN LOWER(genre) LIKE '%mystery, thriller & suspense%'
+       OR (LOWER(genre) LIKE '%mystery%' AND LOWER(genre) NOT LIKE '%nonfiction%')
+       OR LOWER(genre) LIKE '%thriller%'             
+       THEN 'Mystery / Thriller'
+
+    WHEN LOWER(genre) LIKE '%young adult%'
+       OR LOWER(genre) LIKE '%teen & young adult%'
+       OR LOWER(genre) LIKE '%fantasy%'
+       OR LOWER(genre) LIKE '%science fiction%'
+       OR LOWER(genre) LIKE '%dystopia%'             
+       THEN 'YA / Fantasy / SF'
+
+
+    -------------------------------------------------
+    -- Nonfiction
+    -------------------------------------------------
+
+    WHEN LOWER(genre) LIKE '%biographies & memoirs%'
+       OR LOWER(genre) LIKE '%biographies%'
+       OR LOWER(genre) LIKE '%memoir%'
+       OR (LOWER(genre) LIKE '%history%' AND LOWER(genre) NOT LIKE '%fiction%')
+       OR LOWER(genre) LIKE '%politics & social sciences%'
+       OR LOWER(genre) LIKE '%politics%'
+       OR LOWER(genre) LIKE '%law%'
+       THEN 'Bio / History / Politics'
+
+
+    WHEN LOWER(genre) LIKE '%business & money%'
+       OR LOWER(genre) LIKE '%business%'
+       OR LOWER(genre) LIKE '%self-help%'
+       OR LOWER(genre) LIKE '%self help%'
+       OR LOWER(genre) LIKE '%health, fitness & dieting%'
+       OR LOWER(genre) LIKE '%health / psychology / habits%'
+       THEN 'Business / Self-Help / Psychology'
+
+
+    WHEN LOWER(genre) LIKE '%religion & spirituality%'
+       OR LOWER(genre) LIKE '%religion%'
+       OR LOWER(genre) LIKE '%spiritual%'
+       OR LOWER(genre) LIKE '%christian%'
+       OR LOWER(genre) LIKE '%theology%'
+       THEN 'Religion / Spirituality'
+
+
+    WHEN LOWER(genre) LIKE '%science & math%'
+       OR LOWER(genre) LIKE '%science%'
+       OR LOWER(genre) LIKE '%nonfiction%'
+       OR LOWER(genre) LIKE '%education & teaching%'
+       OR LOWER(genre) LIKE '%reference%'
+       OR LOWER(genre) LIKE '%engineering & transportation%'
+       OR LOWER(genre) LIKE '%humor & entertainment%'
+       THEN 'Science / Ideas'
+
+
+    WHEN LOWER(genre) LIKE '%cookbooks, food & wine%'
+       OR LOWER(genre) LIKE '%cookbooks%'
+       OR LOWER(genre) LIKE '%food & wine%'
+       OR LOWER(genre) LIKE '%crafts, hobbies & home%'
+       OR LOWER(genre) LIKE '%parenting & relationships%'
+       OR LOWER(genre) LIKE '%parenting%'
+       OR LOWER(genre) LIKE '%relationships%'
+       OR LOWER(genre) LIKE '%sports & outdoors%'
+       OR LOWER(genre) LIKE '%travel%'
+       THEN 'Food / Home / Lifestyle'
+
+    -------------------------------------------------
+    ELSE 'Other / Misc'
+  END AS genre_level2,
+
+  years_on_bestsellers_list
+
+FROM `book-project-479914.analysis_dataset.popularity_genre`
+
+
+## Most popular genres (by number of books)
+   --- Which genres dominate the Amazon bestseller list?
+
+SELECT genre_level2, COUNT(*) AS num_books
+FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
+GROUP BY genre_level2
+ORDER BY num_books DESC
+
+
+## Top-level genre popularity (fiction vs nonfiction vs children)
+   --- Which genre drove the book market from 2010 to 2020?
+
+SELECT genre_level1, COUNT(*) AS num_books
+FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
+GROUP BY genre_level1
+ORDER BY num_books DESC
+
+
+## Most frequent bestselling authors
+
+SELECT author, COUNT(*) AS num_books
+FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
+GROUP BY author
+ORDER BY num_books DESC
+
+
+## Genre heatmap
+
+SELECT 
+  genre_level1,
+  genre_level2,
+  COUNT(*) AS num_books
+FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
+GROUP BY genre_level1, genre_level2
+ORDER BY genre_level1, num_books DESC
