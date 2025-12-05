@@ -2,8 +2,8 @@ SELECT
   *
   ,CASE
     WHEN published_year >= 1600 AND published_year <= 1699 THEN '1600s'
-    WHEN published_year >= 1700 AND published_year <= 1799 THEN '1900s'
-    WHEN published_year >= 1800 AND published_year <= 1899 THEN '1900s'
+    WHEN published_year >= 1700 AND published_year <= 1799 THEN '1700s'
+    WHEN published_year >= 1800 AND published_year <= 1899 THEN '1800s'
     WHEN published_year >= 1900 AND published_year <= 1910 THEN '1900s'
     WHEN published_year >= 1911 AND published_year <= 1920 THEN '1910s'
     WHEN published_year >= 1921 AND published_year <= 1930 THEN '1920s'
