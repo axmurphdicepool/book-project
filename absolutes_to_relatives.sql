@@ -37,9 +37,13 @@ WITH global_avgs AS (
 )
 
 SELECT
-  *
+  part1.*
+  ,ROUND(pct_above_avg_review_score,2) AS pctg_above_avg_review_score
+  ,ROUND(pct_above_avg_num_reviews,2) AS pctg_above_avg_reviews_count
+  ,ROUND(pct_above_avg_price,2) AS pctg_above_avg_price
 FROM book-project-479914.trial_and_error.m_dedup_relat AS part1
 LEFT JOIN decade_stats AS part2
   ON part1.publication_decade = part2.publication_decade
 ORDER BY part1.publication_decade ASC
+
 
