@@ -1,3 +1,5 @@
+-- creating table
+
 WITH title_count AS (SELECT 
   title
   ,COUNT(title) AS nb_editions
@@ -28,3 +30,16 @@ SELECT
 FROM `book-project-479914.harmonized_data.maybe_final_concat` AS original
   LEFT JOIN title_count USING (title)
   LEFT JOIN classics_count USING (title)
+
+  -- cleaning nulls
+
+  SELECT  
+  title
+  ,IFNULL(nb_editions, 1) AS nb_editions
+  ,IFNULL(nb_years_published, 1) AS nb_years_published
+  ,earliest_publication_year
+  ,latest_publication_year
+  ,IFNULL(bestseller, 0) AS bestseller
+  ,IFNULL(years_on_bestsellers_list, 0) AS years_on_bestsellers_list
+  ,IFNULL(classic, 0) AS classic
+FROM `book-project-479914.trial_and_error.m_relevance` 
