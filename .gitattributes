@@ -1,3 +1,9 @@
 *.sql linguist-language=SQL
 *.sql linguist-detectable=true
 *.sql linguist-documentation=false
+docs/sql/** -linguist-documentation
+ *.sql text
+
+ query/** linguist-detectable
+ query/** linguist-language=SQL
+ query/** linguist-documentation=false
