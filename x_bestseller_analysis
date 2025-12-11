@@ -1,4 +1,4 @@
-## This table contains 254 unique books, is a list of bestseller books with different genre from 2010 to 2020 sourced from Amazon, and is used to analyse the most popular genres, the relationship between genre and years on the bestseller list, and to identify top bestseller titles.
+## This table contains 561 unique books, is a list of bestseller books with different genre from 2010 to 2020 sourced from Amazon, and is used to analyse the most popular genres, the relationship between genre and years on the bestseller list, and to identify top bestseller titles.
 
 WITH book_level AS (
   SELECT
@@ -29,152 +29,368 @@ ORDER BY
   years_on_bestsellers_list DESC
 
 
+  ## Tweaked
+
+  WITH clean_mfc AS (
+
+  SELECT
+    title,
+    author,
+    genre,
+    TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(LOWER(title), r'[:\(].*$', ''),
+        r'[^a-z0-9 ]', ''
+      )
+    ) AS clean_title,
+    TRIM(LOWER(author)) AS clean_author
+  FROM `book-project-479914.harmonized_data.maybe_final_concat`
+  WHERE genre IS NOT NULL
+),
+
+clean_ab AS (
+
+  SELECT
+    title,
+    author,
+    years_on_bestsellers_list,
+    TRIM(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(LOWER(title), r'[:\(].*$', ''),
+        r'[^a-z0-9 ]', ''
+      )
+    ) AS clean_title,
+    TRIM(LOWER(author)) AS clean_author
+  FROM `book-project-479914.harmonized_data.amazon_bestseller-v5`
+),
+
+exact_matches AS (
+
+  SELECT
+    ab.clean_title,
+    ab.clean_author,
+    ab.title,
+    ab.author,
+    ab.years_on_bestsellers_list,
+    mfc.genre,
+    "exact_clean_match" AS match_type,
+    NULL AS dist
+  FROM clean_ab ab
+  JOIN clean_mfc mfc
+    ON ab.clean_title  = mfc.clean_title
+   AND ab.clean_author = mfc.clean_author
+),
+
+unmatched_ab AS (
+
+  SELECT *
+  FROM clean_ab ab
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM exact_matches em
+    WHERE em.clean_title  = ab.clean_title
+      AND em.clean_author = ab.clean_author
+  )
+),
+
+fuzzy_candidates AS (
+
+  SELECT
+    ab.clean_title,
+    ab.clean_author,
+    ab.title,
+    ab.author,
+    ab.years_on_bestsellers_list,
+    mfc.genre,
+    "fuzzy_title_match" AS match_type,
+    EDIT_DISTANCE(ab.clean_title, mfc.clean_title) AS dist
+  FROM unmatched_ab ab
+  JOIN clean_mfc mfc
+    ON ab.clean_author = mfc.clean_author
+),
+
+all_candidates AS (
+
+  SELECT * FROM exact_matches
+  UNION ALL
+  SELECT * FROM fuzzy_candidates
+),
+
+best_match AS (
+
+  SELECT
+    *
+  FROM (
+    SELECT
+      ac.*,
+      CASE
+        WHEN match_type = 'exact_clean_match' THEN 1
+        ELSE 2
+      END AS match_priority,
+      ROW_NUMBER() OVER (
+        PARTITION BY clean_title, clean_author
+        ORDER BY
+          CASE WHEN match_type = 'exact_clean_match' THEN 1 ELSE 2 END,
+          dist ASC
+      ) AS rn
+    FROM all_candidates ac
+  )
+  WHERE rn = 1
+)
+
+
+SELECT
+  ab.title,
+  ab.author,
+  ab.years_on_bestsellers_list,
+  bm.genre,
+  bm.match_type,
+  bm.dist
+FROM clean_ab ab
+LEFT JOIN best_match bm
+  ON ab.clean_title  = bm.clean_title
+ AND ab.clean_author = bm.clean_author
+ WHERE genre IS NOT NULL
+
+
   ## Specify genre_level1 (fiction / nonfiction / children) 
   ##       & genre_level2 ()
 
-SELECT
-  title,
-  author,
-  genre,
+  SELECT 
 
-  ---------------------------------------------------
-  -- LEVEL 1：fiction / nonfiction / children
-  ---------------------------------------------------
-  CASE
+    title,
+    author,
+    genre,
 
-    WHEN LOWER(genre) LIKE '%children%' 
-      OR LOWER(genre) LIKE '%childrens%'
-      OR LOWER(genre) LIKE '%picture%' 
-      THEN 'children'
+    ---------------------------------------------------
+    -- LEVEL 1：fiction / nonfiction / children
+    ---------------------------------------------------
+    CASE
+      WHEN LOWER(genre) LIKE '%children%' 
+        OR LOWER(genre) LIKE '%childrens%'
+        OR LOWER(genre) LIKE '%kids%' 
+        OR LOWER(genre) LIKE '%picture book%'
+        OR LOWER(genre) LIKE '%picture%' 
+        THEN 'children'
 
+      WHEN (LOWER(genre) LIKE '%fiction%' AND LOWER(genre) NOT LIKE '%nonfiction%')
+        OR LOWER(genre) LIKE '%literature & fiction%'
+        OR LOWER(genre) LIKE '%literary%'
+        OR LOWER(genre) LIKE '%young adult%'
+        OR LOWER(genre) LIKE '%teen & young adult%'
+        OR LOWER(genre) LIKE '%fantasy%'
+        OR LOWER(genre) LIKE '%science fiction%'
+        OR LOWER(genre) LIKE '%sci-fi%'
+        OR LOWER(genre) LIKE '%dystopia%'
+        OR LOWER(genre) LIKE '%romance%'
+        OR LOWER(genre) LIKE '%horror%'
+        OR LOWER(genre) LIKE '%mystery, thriller & suspense%'
+        OR (LOWER(genre) LIKE '%mystery%' AND LOWER(genre) NOT LIKE '%nonfiction%')
+        OR LOWER(genre) LIKE '%thriller%'
+        OR LOWER(genre) LIKE '%comics%'
+        OR LOWER(genre) LIKE '%graphic novel%'
+        THEN 'fiction'
 
-    WHEN (LOWER(genre) LIKE '%fiction%' AND LOWER(genre) NOT LIKE '%nonfiction%')
-      OR LOWER(genre) LIKE '%young adult%'
-      OR LOWER(genre) LIKE '%teen & young adult%'
-      OR LOWER(genre) LIKE '%fantasy%'
-      OR LOWER(genre) LIKE '%mystery, thriller & suspense%'
-      OR (LOWER(genre) LIKE '%mystery%' AND LOWER(genre) NOT LIKE '%nonfiction%')
-      OR LOWER(genre) LIKE '%thriller%'
-      OR LOWER(genre) LIKE '%romance%'
-      THEN 'fiction'
+      WHEN LOWER(genre) LIKE '%nonfiction%'
+        OR LOWER(genre) LIKE '%biographies & memoirs%'
+        OR LOWER(genre) LIKE '%biographies%'
+        OR LOWER(genre) LIKE '%memoir%'
+        OR (LOWER(genre) LIKE '%history%' AND LOWER(genre) NOT LIKE '%fiction%')
+        OR LOWER(genre) LIKE '%politics & social sciences%'
+        OR LOWER(genre) LIKE '%politics%'
+        OR LOWER(genre) LIKE '%law%'
+        OR LOWER(genre) LIKE '%business & money%'
+        OR LOWER(genre) LIKE '%business%'
+        OR LOWER(genre) LIKE '%self-help%'
+        OR LOWER(genre) LIKE '%self help%'
+        OR LOWER(genre) LIKE '%health, fitness & dieting%'
+        OR LOWER(genre) LIKE '%religion & spirituality%'
+        OR LOWER(genre) LIKE '%religion%'
+        OR LOWER(genre) LIKE '%spiritual%'
+        OR LOWER(genre) LIKE '%christian%'
+        OR LOWER(genre) LIKE '%theology%'
+        OR LOWER(genre) LIKE '%science & math%'
+        OR LOWER(genre) LIKE '%science%'
+        OR LOWER(genre) LIKE '%education & teaching%'
+        OR LOWER(genre) LIKE '%reference%'
+        OR LOWER(genre) LIKE '%engineering & transportation%'
+        OR LOWER(genre) LIKE '%humor & entertainment%'
+        OR LOWER(genre) LIKE '%cookbooks, food & wine%'
+        OR LOWER(genre) LIKE '%cookbooks%'
+        OR LOWER(genre) LIKE '%food & wine%'
+        OR LOWER(genre) LIKE '%crafts, hobbies & home%'
+        OR LOWER(genre) LIKE '%parenting & relationships%'
+        OR LOWER(genre) LIKE '%parenting%'
+        OR LOWER(genre) LIKE '%relationships%'
+        OR LOWER(genre) LIKE '%sports & outdoors%'
+        OR LOWER(genre) LIKE '%travel%'
+        OR LOWER(genre) LIKE '%arts & photography%'
+        THEN 'nonfiction'
 
+      ELSE 'nonfiction'
+    END AS genre_level1,
 
-    ELSE 'nonfiction'
-  END AS genre_level1,
+    ---------------------------------------------------
+    -- LEVEL 2
+    ---------------------------------------------------
+    CASE
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%children%' 
+         OR LOWER(genre) LIKE '%childrens%' 
+         OR LOWER(genre) LIKE '%kids%'
+         OR LOWER(genre) LIKE '%picture book%'
+         OR LOWER(genre) LIKE '%picture%' 
+         THEN 'Children'
 
-  ---------------------------------------------------
-  -- LEVEL 2
-  ---------------------------------------------------
-  CASE
-    -------------------------------------------------
-    -- Children / Fiction
-    -------------------------------------------------
-    WHEN LOWER(genre) LIKE '%children%' 
-       OR LOWER(genre) LIKE '%childrens%' 
-       OR LOWER(genre) LIKE '%picture%' 
-       THEN 'Children'
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%comics%'
+         OR LOWER(genre) LIKE '%graphic novel%'
+         THEN 'Comics / Graphic Novels'
 
-    WHEN LOWER(genre) LIKE '%literature & fiction%'  
-       THEN 'Literary'
+      WHEN LOWER(genre) LIKE '%literature & fiction%'  
+         OR LOWER(genre) LIKE '%literary%'
+         THEN 'Literary'
 
-    WHEN LOWER(genre) LIKE '%mystery, thriller & suspense%'
-       OR (LOWER(genre) LIKE '%mystery%' AND LOWER(genre) NOT LIKE '%nonfiction%')
-       OR LOWER(genre) LIKE '%thriller%'             
-       THEN 'Mystery / Thriller'
+      WHEN LOWER(genre) LIKE '%mystery, thriller & suspense%'
+         OR (LOWER(genre) LIKE '%mystery%' AND LOWER(genre) NOT LIKE '%nonfiction%')
+         OR LOWER(genre) LIKE '%thriller%'
+         OR LOWER(genre) LIKE '%horror%'
+         THEN 'Mystery / Thriller'
 
-    WHEN LOWER(genre) LIKE '%young adult%'
-       OR LOWER(genre) LIKE '%teen & young adult%'
-       OR LOWER(genre) LIKE '%fantasy%'
-       OR LOWER(genre) LIKE '%science fiction%'
-       OR LOWER(genre) LIKE '%dystopia%'             
-       THEN 'YA / Fantasy / SF'
+      WHEN LOWER(genre) LIKE '%young adult%'
+         OR LOWER(genre) LIKE '%teen & young adult%'
+         OR LOWER(genre) LIKE '%fantasy%'
+         OR LOWER(genre) LIKE '%science fiction%'
+         OR LOWER(genre) LIKE '%sci-fi%'
+         OR LOWER(genre) LIKE '%dystopia%'             
+         THEN 'YA / Fantasy / SF'
 
+      WHEN LOWER(genre) LIKE '%romance%'
+         THEN 'Romance'
 
-    -------------------------------------------------
-    -- Nonfiction
-    -------------------------------------------------
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%biographies & memoirs%'
+         OR LOWER(genre) LIKE '%biographies%'
+         OR LOWER(genre) LIKE '%memoir%'
+         OR (LOWER(genre) LIKE '%history%' AND LOWER(genre) NOT LIKE '%fiction%')
+         OR LOWER(genre) LIKE '%politics & social sciences%'
+         OR LOWER(genre) LIKE '%politics%'
+         OR LOWER(genre) LIKE '%law%'
+         THEN 'Bio / History / Politics'
 
-    WHEN LOWER(genre) LIKE '%biographies & memoirs%'
-       OR LOWER(genre) LIKE '%biographies%'
-       OR LOWER(genre) LIKE '%memoir%'
-       OR (LOWER(genre) LIKE '%history%' AND LOWER(genre) NOT LIKE '%fiction%')
-       OR LOWER(genre) LIKE '%politics & social sciences%'
-       OR LOWER(genre) LIKE '%politics%'
-       OR LOWER(genre) LIKE '%law%'
-       THEN 'Bio / History / Politics'
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%business & money%'
+         OR LOWER(genre) LIKE '%business%'
+         OR LOWER(genre) LIKE '%self-help%'
+         OR LOWER(genre) LIKE '%self help%'
+         OR LOWER(genre) LIKE '%health, fitness & dieting%'
+         OR LOWER(genre) LIKE '%health / psychology / habits%'
+         THEN 'Business / Self-Help / Psychology'
 
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%religion & spirituality%'
+         OR LOWER(genre) LIKE '%religion%'
+         OR LOWER(genre) LIKE '%spiritual%'
+         OR LOWER(genre) LIKE '%christian%'
+         OR LOWER(genre) LIKE '%theology%'
+         THEN 'Religion / Spirituality'
 
-    WHEN LOWER(genre) LIKE '%business & money%'
-       OR LOWER(genre) LIKE '%business%'
-       OR LOWER(genre) LIKE '%self-help%'
-       OR LOWER(genre) LIKE '%self help%'
-       OR LOWER(genre) LIKE '%health, fitness & dieting%'
-       OR LOWER(genre) LIKE '%health / psychology / habits%'
-       THEN 'Business / Self-Help / Psychology'
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%science & math%'
+         OR LOWER(genre) LIKE '%science%'
+         OR LOWER(genre) LIKE '%education & teaching%'
+         OR LOWER(genre) LIKE '%reference%'
+         OR LOWER(genre) LIKE '%engineering & transportation%'
+         OR LOWER(genre) LIKE '%humor & entertainment%'
+         THEN 'Science / Ideas'
 
+      -------------------------------------------------
+      WHEN LOWER(genre) LIKE '%cookbooks, food & wine%'
+         OR LOWER(genre) LIKE '%cookbooks%'
+         OR LOWER(genre) LIKE '%food & wine%'
+         OR LOWER(genre) LIKE '%crafts, hobbies & home%'
+         OR LOWER(genre) LIKE '%parenting & relationships%'
+         OR LOWER(genre) LIKE '%parenting%'
+         OR LOWER(genre) LIKE '%relationships%'
+         OR LOWER(genre) LIKE '%sports & outdoors%'
+         OR LOWER(genre) LIKE '%travel%'
+         OR LOWER(genre) LIKE '%arts & photography%'
+         THEN 'Food / Home / Lifestyle'
 
-    WHEN LOWER(genre) LIKE '%religion & spirituality%'
-       OR LOWER(genre) LIKE '%religion%'
-       OR LOWER(genre) LIKE '%spiritual%'
-       OR LOWER(genre) LIKE '%christian%'
-       OR LOWER(genre) LIKE '%theology%'
-       THEN 'Religion / Spirituality'
+      -------------------------------------------------
+      ELSE 'Other / Misc'
+    END AS genre_level2,
 
-
-    WHEN LOWER(genre) LIKE '%science & math%'
-       OR LOWER(genre) LIKE '%science%'
-       OR LOWER(genre) LIKE '%nonfiction%'
-       OR LOWER(genre) LIKE '%education & teaching%'
-       OR LOWER(genre) LIKE '%reference%'
-       OR LOWER(genre) LIKE '%engineering & transportation%'
-       OR LOWER(genre) LIKE '%humor & entertainment%'
-       THEN 'Science / Ideas'
-
-
-    WHEN LOWER(genre) LIKE '%cookbooks, food & wine%'
-       OR LOWER(genre) LIKE '%cookbooks%'
-       OR LOWER(genre) LIKE '%food & wine%'
-       OR LOWER(genre) LIKE '%crafts, hobbies & home%'
-       OR LOWER(genre) LIKE '%parenting & relationships%'
-       OR LOWER(genre) LIKE '%parenting%'
-       OR LOWER(genre) LIKE '%relationships%'
-       OR LOWER(genre) LIKE '%sports & outdoors%'
-       OR LOWER(genre) LIKE '%travel%'
-       THEN 'Food / Home / Lifestyle'
-
-    -------------------------------------------------
-    ELSE 'Other / Misc'
-  END AS genre_level2,
-
-  years_on_bestsellers_list
-
-FROM `book-project-479914.analysis_dataset.popularity_genre`
+    years_on_bestsellers_list
+  FROM `book-project-479914.analysis_dataset.bestseller-`
 
 
 ## Most popular genres (by number of books)
    --- Which genres dominate the Amazon bestseller list?
 
-SELECT genre_level2, COUNT(*) AS num_books
-FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
-GROUP BY genre_level2
-ORDER BY num_books DESC
+WITH stats AS (
+  SELECT 
+    genre_level2,
+    COUNT(*) AS num_books
+  FROM `book-project-479914.analysis_dataset.bestseller_final`
+  GROUP BY genre_level2
+),
+tot AS (
+  SELECT SUM(num_books) AS total_books FROM stats
+)
+
+SELECT
+  s.genre_level2,
+  s.num_books,
+  ROUND(s.num_books / t.total_books * 100, 2) AS percentage_of_total
+FROM stats s
+CROSS JOIN tot t
+ORDER BY s.num_books DESC
 
 
 ## Top-level genre popularity (fiction vs nonfiction vs children)
    --- Which genre drove the book market from 2010 to 2020?
 
-SELECT genre_level1, COUNT(*) AS num_books
-FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
-GROUP BY genre_level1
-ORDER BY num_books DESC
+WITH stats AS (
+  SELECT 
+    genre_level1,
+    COUNT(*) AS num_books
+  FROM `book-project-479914.analysis_dataset.bestseller_final`
+  GROUP BY genre_level1
+),
+tot AS (
+  SELECT SUM(num_books) AS total_books FROM stats
+)
+
+SELECT
+  s.genre_level1,
+  s.num_books,
+  ROUND(s.num_books / t.total_books * 100, 2) AS percentage_of_total
+FROM stats s
+CROSS JOIN tot t
+ORDER BY s.num_books DESC
 
 
 ## Most frequent bestselling authors
 
-SELECT author, COUNT(*) AS num_books
-FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
-GROUP BY author
-ORDER BY num_books DESC
+WITH stats AS (
+  SELECT 
+    author,
+    COUNT(*) AS num_books
+  FROM `book-project-479914.analysis_dataset.bestseller_final`
+  GROUP BY author
+),
+tot AS (
+  SELECT SUM(num_books) AS total_books FROM stats
+)
+
+SELECT
+  s.author,
+  s.num_books,
+  ROUND(s.num_books / t.total_books * 100, 2) AS percentage_of_total
+FROM stats s
+CROSS JOIN tot t
+ORDER BY s.num_books DESC
 
 
 ## Genre heatmap
@@ -183,6 +399,85 @@ SELECT
   genre_level1,
   genre_level2,
   COUNT(*) AS num_books
-FROM `book-project-479914.analysis_dataset.popularity_genre-v2`
+FROM `book-project-479914.analysis_dataset.bestseller_final`
 GROUP BY genre_level1, genre_level2
 ORDER BY genre_level1, num_books DESC
+
+
+## Popularity & longevity by genre
+
+   --- Which genre produces the most long-lasting books? → via avg_years
+   --- Which genre is the most inconsistent or risky? → via stddev_years (high = risky)
+   --- Which genre is the most commercially important? → via popularity_index
+   --- Which genre has many books but low longevity? → num_books high, avg_years low
+   --- Which genre has few books but extreme longevity? → num_books low, avg_years high
+
+WITH stats AS (
+  SELECT 
+    genre_level2,
+    COUNT(*) AS num_books,
+    AVG(years_on_bestsellers_list) AS avg_years,
+    STDDEV_POP(years_on_bestsellers_list) AS stddev_years,
+    COUNT(*) * AVG(years_on_bestsellers_list) AS popularity_index
+  FROM `book-project-479914.analysis_dataset.bestseller_final`
+  GROUP BY genre_level2
+),
+
+tot AS (
+  SELECT SUM(num_books) AS total_books FROM stats
+)
+
+SELECT
+  s.genre_level2,
+  s.num_books,
+  ROUND(s.num_books / t.total_books * 100, 2) AS percentage_of_total,
+  ROUND(s.avg_years, 2) AS avg_years,
+  ROUND(s.stddev_years, 2) AS stddev_years,
+  ROUND(s.popularity_index, 2) AS popularity_index
+FROM stats s
+CROSS JOIN tot t
+ORDER BY popularity_index DESC
+
+
+
+## Top 3? longest-lasting books per genre?
+
+SELECT *
+FROM `book-project-479914.analysis_dataset.bestseller_final`
+WHERE genre_level2 = 'Mystery / Thriller'
+ORDER BY years_on_bestsellers_list DESC
+LIMIT 3
+
+
+## Bonus! - Market trend analysis by genre over years
+
+SELECT
+  *
+FROM
+  `book-project-479914.analysis_dataset.popularity_rank`
+ORDER BY
+  YEAR ASC,
+  Rank
+
+
+  ## A/B testing on correlation between genre/classic/awards and bestseller
+
+  SELECT
+  DISTINCT (title),
+  g.genre,
+  g.genre_level1,
+  g.genre_level2,
+  g.author,
+  d.review,
+  d.reviews_count,
+  d.length,
+  d.awards,
+  d.classic,
+  d.years_on_bestsellers_list
+FROM
+  `book-project-479914.trial_and_error.m_deduplicated` AS d
+INNER JOIN
+  `book-project-479914.analysis_dataset.popularity_genre-v2` AS g
+USING
+  (title)
+  
